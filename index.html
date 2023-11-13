@@ -1,0 +1,195 @@
+<!--
+@Author       DC-Nam
+-->
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>free upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(to bottom, #56CCF2, #2F80ED);
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+        #file {
+            position: relative;
+            text-align: center;
+            word-wrap: break-word;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        #drop-zone h3 {
+            background-image: linear-gradient(to right, #fb5060, #067cde);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        #drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: border-color 0.3s ease-in-out;
+        }
+        #drop-zone:hover {
+            border-color: #000;
+        }
+        input {
+            display: none;
+        }
+        #progress {
+            margin-top: 30px;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        #exports-json {
+            margin-top: 5px;
+            background-color: rgba(0,0,0,0);
+            border-radius: 5px;
+            background-image: linear-gradient(to right, #fb5060, #067cde);
+            -webkit-background-clip: text;
+            color: transparent;
+            position: absolute;
+            right: 0;
+        }
+        .close-upload {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+        .close-upload::before, .close-upload::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60%;
+            height: 2px;
+            background-color: red;
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+        .close-upload::after {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+        .file-info {
+            position: relative;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        .file-info h4 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+            background-image: linear-gradient(to right, #353a5f, #374a5a);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .file-info .loaded {
+            font-size: 14px;
+            background-image: linear-gradient(to right, #281850, #203c58);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .file-info a {
+            font-size: 12px;
+            text-decoration: none;
+            /*transition: color 0.3s ease-in-out;*/
+        }
+        /*.file-info a:hover {
+            color: #000;
+        }*/
+        footer {
+            text-align: center;
+            margin-top: auto;
+            font-size: 10px;
+            background-image: linear-gradient(to right, #ff4e50, #f9d423);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="file">
+        <input type="file" multiple>
+        <div id="drop-zone">
+            <h3>kéo thả hoặc chọn file</h3>
+        </div>
+        <div>
+            <button id="exports-json">Exports Json</button>
+        </div>
+        <div id="progress"></div>
+    </div>
+    <footer>
+        DC-Nam
+    </footer>
+</body>
+<script>
+    let file_input = document.querySelector('input[type="file"]');
+    let drop_zone = document.getElementById('drop-zone');
+    let progress = document.getElementById('progress');
+    let convert_size = b=>eval("(()=>{let units = ['B', 'KB', 'MB', 'GB', 'TB'];let i = 0;while (b >= 1024 && i < units.length - 1)(b/=1024,i++);return `${b.toFixed(2)} ${units[i]}`})()");
+    let uploads = files=>(drop_zone.style['border-color'] = 'red', Promise.all([...files].map(upload)).then(_=>drop_zone.style['border-color'] = '#ccc'));
+
+    document.getElementById('exports-json').addEventListener('click', _=> {
+        let a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify([...progress.children].map(e=>e.querySelector('a')?.href).filter(e=>typeof e == 'string' && /^http(s|):\/\//.test(e)), 0, 4)], {
+            type: 'application/json',
+        }));
+        a.download = Date.now()+'.json',
+        document.body.append(a),
+        a.click(),
+        a.remove();
+    });
+    file_input.addEventListener('change', _=>uploads(file_input.files));
+    drop_zone.addEventListener('click', ()=>file_input.click());
+    drop_zone.addEventListener('dragover', event=>(event.preventDefault(), drop_zone.style['border-color'] = '#000'));
+    drop_zone.addEventListener('dragleave', ()=>drop_zone.style['border-color'] = '#ccc');
+    drop_zone.addEventListener('drop', event=>(event.preventDefault(), uploads(event.dataTransfer.files)));
+
+    function upload(i) {
+        return new Promise(resolve=> {
+            let xhr = new XMLHttpRequest();
+            let file_info = document.createElement('div');
+            file_info.className = 'file-info';
+            file_info.style['border-color'] = 'red';
+            let close_upload = document.createElement('div');
+            close_upload.className = 'close-upload';
+            close_upload.onclick = _=>(xhr.abort(), file_info.remove(), resolve());
+            let file_head = document.createElement('h4');
+            file_head.innerHTML = i.name;
+            let loaded = document.createElement('div');
+            loaded.className = 'loaded';
+            loaded.innerHTML = `0 B/${convert_size(i.size)} (0%)`;
+            file_head.append(loaded);
+            file_info.append(close_upload, file_head);
+            xhr.open('POST', 'https://file.miniclouds.cn:27777/file/upload');
+            xhr.setRequestHeader('mvusername', 'mini-ai');
+            xhr.setRequestHeader('sysname', 'mini-ai');
+            xhr.upload.addEventListener('progress', event=>loaded.innerHTML = `${convert_size(event.loaded)}/${convert_size(event.total)} (${Math.round((event.loaded/event.total)*100)}%)`);
+            xhr.addEventListener('load', _=> {
+                let a = document.createElement('a');
+                a.href = JSON.parse(JSON.parse(xhr.responseText)).resData.fileUrl;
+                a.innerHTML = a.href,
+                file_info.style['border-color'] = 'green',
+                file_info.append(a),
+                close_upload.onclick = _=>file_info.remove(),
+                resolve();
+            });
+            let form_data = new FormData();
+            form_data.append('isHttps', 'true');
+            form_data.append('file', i);
+            xhr.send(form_data);
+            progress.append(file_info);
+        });
+    };
+</script>
+</html>
